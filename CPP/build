@@ -1,2 +1,2 @@
-g++ c.cpp -o diffusion -I/opt/homebrew/Cellar/sfml/3.0.0/include -L/opt/homebrew/Cellar/sfml/3.0.0/lib -std=c++23 -lsfml-graphics -lsfml-window -lsfml-system
+g++ parallel.cpp -o diffusion -I/opt/homebrew/Cellar/sfml/3.0.0/include -L/opt/homebrew/Cellar/sfml/3.0.0/lib -std=c++23 -lsfml-graphics -lsfml-window -lsfml-system
 ./diffusion
