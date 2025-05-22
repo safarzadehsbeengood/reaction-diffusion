@@ -1,3 +1,4 @@
+#include "RGBtoHSL.hpp"
 #include <SFML/Graphics.hpp>
 #include <chrono>
 #include <future>
@@ -6,15 +7,14 @@
 #include <thread>
 #include <unistd.h>
 #include <vector>
-#include "RGBtoHSL.hpp"
 
 // Define simulation parameters
 const int WIDTH = 800;
 const int HEIGHT = 800;
 const double DIFFUSION_RATE_A = 0.2097;
 const double DIFFUSION_RATE_B = 0.1050;
-double FEED_RATE = 0.0517;
-double KILL_RATE = 0.0621;
+double FEED_RATE = 0.0460;
+double KILL_RATE = 0.0594;
 double DT = 4;
 
 // Structure to represent a cell
@@ -23,7 +23,12 @@ struct Cell {
   double b;
 };
 
-int get_idx_from_xy(int x, int y) { return y * WIDTH + x; }
+int get_idx_from_xy(int x, int y) {
+  // Clamp x and y to valid ranges to prevent out-of-bounds access
+  x = std::max(0, std::min(WIDTH - 1, x));
+  y = std::max(0, std::min(HEIGHT - 1, y));
+  return y * WIDTH + x;
+}
 
 // Function to initialize the arr with random values
 std::vector<Cell> initializearr() {
@@ -51,6 +56,9 @@ std::vector<Cell> initializearr() {
 }
 
 double laplaceA(int x, int y, std::vector<Cell> &arr) {
+  // x and y should be in valid ranges [1, WIDTH-2] and [1, HEIGHT-2]
+  // for all the neighboring cells to be valid.
+  // get_idx_from_xy will handle the boundary checking
   double sum = 0;
   sum += arr[get_idx_from_xy(x, y)].a * -1;
   sum += arr[get_idx_from_xy(x - 1, y)].a * 0.2;
@@ -65,6 +73,9 @@ double laplaceA(int x, int y, std::vector<Cell> &arr) {
 }
 
 double laplaceB(int x, int y, std::vector<Cell> &arr) {
+  // x and y should be in valid ranges [1, WIDTH-2] and [1, HEIGHT-2]
+  // for all the neighboring cells to be valid.
+  // get_idx_from_xy will handle the boundary checking
   double sum = 0;
   sum += arr[get_idx_from_xy(x, y)].b * -1;
   sum += arr[get_idx_from_xy(x - 1, y)].b * 0.2;
@@ -88,7 +99,6 @@ void updatearr_chunk(std::vector<Cell> &arr, std::vector<Cell> &nextarr,
 
       double laplacianA = laplaceA(x, y, arr);
       double laplacianB = laplaceB(x, y, arr);
-
 
       nextarr[idx].a = a + ((DIFFUSION_RATE_A * laplacianA) - (a * b * b) +
                             (FEED_RATE * (1 - a))) *
@@ -135,7 +145,6 @@ int main() {
   window.setFramerateLimit(60);
   sf::Image image({WIDTH, HEIGHT}, sf::Color::Black);
   sf::Texture texture;
-  sf::Font font("/System/Library/Fonts/NewYork.ttf");
 
   std::cout << "KILL: " << KILL_RATE << std::endl;
   std::cout << "FEED: " << FEED_RATE << std::endl;
@@ -168,7 +177,7 @@ int main() {
         default:
           break;
         }
-        std::cout << "KILL: " << KILL_RATE << std::endl;
+        std::cout << "\nKILL: " << KILL_RATE << std::endl;
         std::cout << "FEED: " << FEED_RATE << std::endl;
         std::cout << "DT: " << DT << std::endl;
       } else if (const auto *mousePressed =
@@ -177,7 +186,7 @@ int main() {
         int x = mousePos.x;
         int y = mousePos.y;
         arr[y * WIDTH + x].b = 1.0f;
-        int stroke = WIDTH / 50;
+        int stroke = WIDTH / 100;
         for (int i = y - stroke / 2; i < y + stroke / 2; i++) {
           if (i < 0 || i >= HEIGHT)
             continue;
@@ -190,20 +199,26 @@ int main() {
         }
       }
     }
-    window.setActive();
+    if (!window.setActive()) {
+      std::cerr << "Failed to set window as active" << std::endl;
+      continue;
+    }
     updatearr(arr, nextarr);
 
     // Update the image with the new arr data
     for (int y = 0; y < HEIGHT; ++y) {
       for (int x = 0; x < WIDTH; ++x) {
         Cell c = arr[y * WIDTH + x];
-        uint8_t value = static_cast<uint8_t>((c.a-c.b)*255);
+        uint8_t value = static_cast<uint8_t>((c.a - c.b) * 255);
         image.setPixel(sf::Vector2u(x, y), sf::Color(value, value, value));
       }
+      }
     }
-    texture.loadFromImage(image);
+    if (!texture.loadFromImage(image)) {
+      std::cerr << "Failed to load texture from image" << std::endl;
+      continue;
+    }
     sf::Sprite sprite(texture);
-
     window.draw(sprite);
     window.display();
   }
